@@ -6,10 +6,10 @@ All teammates import from here. Do NOT hardcode these values elsewhere
 # Population & SIR parameters 
 POPULATION        = 1000
 INITIAL_INFECTED  = 10
-BETA              = 0.3          # infection rate
+BETA = 0.05                      # infection rate
 GAMMA             = 0.05         # recovery rate
-VACCINE_EFFECT    = 0.1          # fraction of S vaccinated per step  
-QUARANTINE_EFFECT = 0.5          # beta multiplier during quarantine   
+VACCINE_EFFECT    = 0.3          # fraction of S vaccinated per step  
+QUARANTINE_EFFECT = 0.1          # beta multiplier during quarantine   
 MAX_STEPS         = 100          # episode length (days)  
 
 # Actions 
