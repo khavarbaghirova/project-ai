@@ -56,7 +56,7 @@ def train(n_episodes: int = N_EPISODES, seed: int = RANDOM_SEED, verbose: bool =
                 f"avg_reward(100)={avg_r:7.3f} | "
                 f"ε={stats['epsilon']:.4f} | "
                 f"states={stats['states_visited']:5d} | "
-                f"Q_max={stats['q_max']:.3f}"
+                f"Q_max={stats['q_max']:.10f}"
             )
 
     #  save artefacts 

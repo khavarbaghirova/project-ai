@@ -48,9 +48,9 @@ class QLearningAgent:
 
     # Q-table helpers
     def _get_q(self, disc_state: tuple) -> np.ndarray:
-        """Return Q-values for a state, initialising to zeros if unseen."""
         if disc_state not in self.q_table:
-            self.q_table[disc_state] = np.zeros(N_ACTIONS)
+            # Use a pessimistic init so unvisited actions don't corrupt max
+            self.q_table[disc_state] = np.full(N_ACTIONS, -1000.0)
         return self.q_table[disc_state]
 
     # Policy
