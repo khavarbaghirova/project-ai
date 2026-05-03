@@ -4,7 +4,9 @@ Can be run standalone (uses a built-in mock SIR) or with the real environment.
 """
 
 import numpy as np
+import pandas as pd
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 
 # ── lightweight SIR simulation (no gym dependency) ───────────────────────────
@@ -169,13 +171,164 @@ def eda_initial_infected_sweep(save=True):
     plt.show()
 
 
+def build_sweep_dataframe():
+    """
+    Runs a grid of simulations across beta, gamma, population, and initial_infected.
+    Returns a pandas DataFrame — one row per simulation run.
+    This is the 'dataset' used for five-number summary and correlation analysis.
+    """
+    rows = []
+    beta_values    = np.linspace(0.05, 0.9, 15)
+    gamma_values   = np.linspace(0.01, 0.2, 10)
+    pop_values     = [200, 500, 1000, 2000, 5000]
+    init_values    = [5, 10, 20, 50]
+
+    for beta in beta_values:
+        for gamma in gamma_values:
+            for pop in pop_values:
+                for init in init_values:
+                    if init >= pop:
+                        continue
+                    result = run_sir_no_intervention(
+                        population=pop, beta=beta, gamma=gamma,
+                        initial_infected=init, max_steps=300
+                    )
+                    rows.append({
+                        "beta":             beta,
+                        "gamma":            gamma,
+                        "population":       pop,
+                        "initial_infected": init,
+                        "total_infections": result["total_infections"],
+                        "peak_infections":  result["peak_infections"],
+                        "duration":         result["duration"],
+                    })
+
+    return pd.DataFrame(rows)
+
+
+def eda_five_number_summary(df=None, save=True):
+    """Prints and saves a five-number summary of all simulation outcomes."""
+    if df is None:
+        print("Building dataset for five-number summary...")
+        df = build_sweep_dataframe()
+
+    outcomes = ["total_infections", "peak_infections", "duration"]
+    summary  = df[outcomes].describe(percentiles=[0.25, 0.5, 0.75])
+    # keep only the five-number stats
+    summary  = summary.loc[["min", "25%", "50%", "75%", "max"]]
+    summary.index = ["Min", "Q1", "Median", "Q3", "Max"]
+
+    print("\n=== Five-Number Summary of Simulation Outcomes ===")
+    print(summary.to_string())
+
+    # plot as a table figure
+    fig, ax = plt.subplots(figsize=(8, 3))
+    ax.axis("off")
+    tbl = ax.table(
+        cellText=summary.round(1).values,
+        rowLabels=summary.index,
+        colLabels=["Total Infections", "Peak Infections", "Duration (steps)"],
+        cellLoc="center",
+        loc="center",
+    )
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(11)
+    tbl.scale(1.2, 1.8)
+    ax.set_title("Five-Number Summary of Simulation Outcomes",
+                 fontsize=13, fontweight="bold", pad=20)
+
+    plt.tight_layout()
+    if save:
+        plt.savefig("eda_five_number_summary.png", dpi=150, bbox_inches="tight")
+        print("Saved: eda_five_number_summary.png")
+    plt.show()
+    return df
+
+
+def eda_correlation_analysis(df=None, save=True):
+    """Correlation heatmap between parameters and outcomes."""
+    if df is None:
+        print("Building dataset for correlation analysis...")
+        df = build_sweep_dataframe()
+
+    corr = df.corr(numeric_only=True)
+
+    fig, axes = plt.subplots(1, 2, figsize=(16, 5))
+    fig.suptitle("Correlation Analysis", fontsize=13, fontweight="bold")
+
+    # full correlation heatmap
+    sns.heatmap(
+        corr, annot=True, fmt=".2f", cmap="coolwarm",
+        center=0, linewidths=0.5, ax=axes[0]
+    )
+    axes[0].set_title("Full Correlation Matrix")
+
+    # bar chart: correlation of each parameter with total_infections
+    params = ["beta", "gamma", "population", "initial_infected"]
+    corr_with_target = corr["total_infections"][params]
+    colors = ["#F44336" if v > 0 else "#2196F3" for v in corr_with_target]
+    axes[1].barh(params, corr_with_target, color=colors, edgecolor="white")
+    axes[1].axvline(0, color="black", linewidth=0.8)
+    axes[1].set_xlabel("Correlation with Total Infections")
+    axes[1].set_title("Parameter Correlation with Total Infections")
+    axes[1].grid(axis="x", alpha=0.3)
+
+    plt.tight_layout()
+    if save:
+        plt.savefig("eda_correlation.png", dpi=150, bbox_inches="tight")
+        print("Saved: eda_correlation.png")
+    plt.show()
+    return df
+
+
+def eda_boxplots(df=None, save=True):
+    """Box plots showing distribution of outcomes — covers outlier detection."""
+    if df is None:
+        print("Building dataset for box plots...")
+        df = build_sweep_dataframe()
+
+    outcomes = ["total_infections", "peak_infections", "duration"]
+    labels   = ["Total Infections", "Peak Infections", "Duration (steps)"]
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 5))
+    fig.suptitle("Distribution of Simulation Outcomes (Box Plots)", fontsize=13, fontweight="bold")
+
+    for ax, col, label in zip(axes, outcomes, labels):
+        ax.boxplot(df[col], patch_artist=True,
+                   boxprops=dict(facecolor="#90CAF9", color="#1565C0"),
+                   medianprops=dict(color="#F44336", linewidth=2),
+                   whiskerprops=dict(color="#1565C0"),
+                   capprops=dict(color="#1565C0"),
+                   flierprops=dict(marker="o", color="#FF9800", alpha=0.4))
+        ax.set_title(label)
+        ax.set_ylabel(label)
+        ax.grid(axis="y", alpha=0.3)
+
+    plt.tight_layout()
+    if save:
+        plt.savefig("eda_boxplots.png", dpi=150, bbox_inches="tight")
+        print("Saved: eda_boxplots.png")
+    plt.show()
+    return df
+
+
 def run_all_eda():
-    print("Running EDA — this may take ~30 seconds...")
+    print("Running EDA — this may take 1-2 minutes...")
     eda_beta_sweep()
     eda_population_sweep()
     eda_beta_gamma_heatmap()
     eda_initial_infected_sweep()
-    print("All EDA plots saved.")
+
+    # build dataset once and reuse for all three
+    print("Building full sweep dataset (this is the slow part)...")
+    df = build_sweep_dataframe()
+    print(f"Dataset built: {len(df)} simulation runs.")
+
+    eda_five_number_summary(df)
+    eda_correlation_analysis(df)
+    eda_boxplots(df)
+
+    print("\nAll EDA plots saved.")
 
 
 if __name__ == "__main__":
